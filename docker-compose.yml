@@ -1,7 +1,9 @@
-name: compose-craft
 services:
   saas:
-    image: composecraft/composecraft:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: composecraft:latest
     ports:
       - 3000:3000
     environment:
@@ -9,6 +11,10 @@ services:
       - URL=http://localhost:3000
       - SECRET_KEY=changeme
       - MONGODB_URI=mongodb://dev:dev@db
+      - DISABLE_TELEMETRY=true
+      - COMPOSE_DIR=/opt/stacks
+    volumes:
+      - ${COMPOSE_STACKS_DIR}:/opt/stacks
     depends_on:
       - db
     networks:

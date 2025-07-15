@@ -16,6 +16,8 @@ import {ensureAuth} from "@/lib/auth";
 import {generateRandomString, isWithinOneDay} from "@/lib/utils";
 // @ts-ignore
 import { Base64UrlDecoder } from 'next-base64-encoder';
+import YAML from 'yaml'
+import { writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
 
 const registerSchema = zfd.formData({
     email: z.string().email(),
@@ -144,6 +146,18 @@ export const registerCompose = async (compose: object,metadata:composeMetadata, 
         result = r.insertedId.toString()
     }
     if (result) {
+        /* 增加文档保存 */
+        // console.debug(compose)
+ 
+        const compose_content:string = YAML.stringify(compose)
+        const compose_path:string = `${process.env.COMPOSE_DIR?process.env.COMPOSE_DIR:"."}/${(compose as { name: string }).name}`
+ 
+        if (!existsSync(compose_path)) {
+            mkdirSync(compose_path, { recursive: true });
+            console.log(`Directory created: ${compose_path}`);
+        }
+        writeFileSync(`${compose_path}/compose.yaml`, compose_content)
+
         return result
     } else {
         throw Error("could not register")
@@ -421,11 +435,20 @@ export const deleteCompose = async (composeId:string) => {
 
         // Set all the user's compose userId to null
         const composeCollection = db.collection("composes");
+        const compose:any = await composeCollection.findOne({
+            _id: new ObjectId(composeId),
+            userId: new ObjectId(payload.userId as string)
+        });
         await composeCollection.deleteOne({
             _id: new ObjectId(composeId),
             userId: new ObjectId(payload.userId as string)
         })
 
+        /* 同步删除保存的文档*/
+        // console.debug(compose)
+        const compose_path:string = `${process.env.COMPOSE_DIR?process.env.COMPOSE_DIR:"."}/${compose.data.name}`
+
+        rmSync(compose_path, { recursive: true, force: true });
         revalidatePath("/dashboard","page")
         return true
     } catch (e) {
